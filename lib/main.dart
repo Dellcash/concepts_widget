@@ -11,6 +11,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Widget Concepts Example',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
@@ -27,23 +28,24 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  bool _showText = true;
+  final String _displayText = 'Hello, Widget Concepts!';
+  bool _isBoxVisible = true;
   double _containerWidth = 100.0;
   Color _boxColor = Colors.red;
 
-  void _toggleText() {
+  void _toggleVisibility() {
     setState(() {
-      _showText = !_showText;
+      _isBoxVisible = !_isBoxVisible;
     });
   }
 
-  void _changeContainerSize() {
+  void _toggleContainerSize() {
     setState(() {
       _containerWidth = _containerWidth == 100.0 ? 200.0 : 100.0;
     });
   }
 
-  void _changeBoxColor() {
+  void _toggleBoxColor() {
     setState(() {
       _boxColor = _boxColor == Colors.red ? Colors.blue : Colors.red;
     });
@@ -59,33 +61,34 @@ class _MyHomePageState extends State<MyHomePage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            if (_showText) ...[
-              const Text(
-                'Hello, Widget Concepts!',
-                style: TextStyle(fontSize: 20),
+            if (_isBoxVisible)
+              AnimatedContainer(
+                width: _containerWidth,
+                height: 100.0,
+                color: _boxColor,
+                duration: const Duration(seconds: 1),
+                curve: Curves.easeInOut,
+                child: const Center(
+                  child: Text('Container'),
+                ),
               ),
-              const SizedBox(height: 20),
-            ],
-            Container(
-              width: _containerWidth,
-              height: 100.0,
-              color: _boxColor,
-              child: const Center(
-                child: Text('Container'),
-              ),
+            const SizedBox(height: 20),
+            Text(
+              _displayText,
+              style: const TextStyle(fontSize: 20),
             ),
             const SizedBox(height: 20),
             ElevatedButton(
-              onPressed: _toggleText,
-              child: const Text('Toggle Text'),
+              onPressed: _toggleVisibility,
+              child: Text(_isBoxVisible ? 'Hide Box' : 'Show Box'),
             ),
             ElevatedButton(
-              onPressed: _changeContainerSize,
-              child: const Text('Change Container Size'),
+              onPressed: _toggleContainerSize,
+              child: const Text('Toggle Container Size'),
             ),
             ElevatedButton(
-              onPressed: _changeBoxColor,
-              child: const Text('Change Box Color'),
+              onPressed: _toggleBoxColor,
+              child: const Text('Toggle Box Color'),
             ),
           ],
         ),
