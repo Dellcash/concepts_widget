@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 void main() {
   runApp(const MyApp());
@@ -9,82 +10,156 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Widget Concepts Example',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
+    return ChangeNotifierProvider(
+      create: (context) => NoteProvider(),
+      child: MaterialApp(
+        title: 'Note Taking App',
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(primarySwatch: Colors.blue),
+        home: const NoteListScreen(),
       ),
-      home: const RegistrationPage(),
     );
   }
 }
 
-class RegistrationPage extends StatefulWidget {
-  const RegistrationPage({super.key});
+class Note {
+  final String id;
+  String title;
+  String content;
 
-  @override
-  _RegistrationPageState createState() => _RegistrationPageState();
+  Note({required this.id, required this.title, required this.content});
 }
 
-class _RegistrationPageState extends State<RegistrationPage> {
-  final _formKey = GlobalKey<FormState>();
-  final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _emailController = TextEditingController();
+class NoteProvider with ChangeNotifier {
+  final List<Note> _notes = [];
 
-  final bool _registrationSuccessful = false;
+  List<Note> get notes => _notes;
 
-  void _submitForm() {
-    if (_formKey.currentState!.validate()) {
-      // Perform registration logic (simulated here)
-      // If registration is successful, navigate to the success screen
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => const SuccessPage()),
-      );
+  void addNote(Note note) {
+    _notes.add(note);
+    notifyListeners();
+  }
+
+  void updateNote(Note updatedNote) {
+    final index = _notes.indexWhere((note) => note.id == updatedNote.id);
+    if (index != -1) {
+      _notes[index] = updatedNote;
+      notifyListeners();
     }
   }
+
+  void deleteNote(String noteId) {
+    _notes.removeWhere((note) => note.id == noteId);
+    notifyListeners();
+  }
+}
+
+class NoteListScreen extends StatelessWidget {
+  const NoteListScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Registration Page'),
+        title: const Text('Note Taking App'),
+      ),
+      body: Consumer<NoteProvider>(
+        builder: (context, noteProvider, child) {
+          final notes = noteProvider.notes;
+          return ListView.builder(
+            itemCount: notes.length,
+            itemBuilder: (context, index) {
+              final note = notes[index];
+              return ListTile(
+                title: Text(note.title),
+                subtitle: Text(note.content),
+                trailing: IconButton(
+                  icon: const Icon(Icons.delete),
+                  onPressed: () {
+                    noteProvider.deleteNote(note.id);
+                  },
+                ),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => NoteDetailScreen(note: note),
+                    ),
+                  );
+                },
+              );
+            },
+          );
+        },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => NoteAddScreen()),
+          );
+        },
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
+}
+
+class NoteAddScreen extends StatelessWidget {
+  final _formKey = GlobalKey<FormState>();
+  final TextEditingController _titleController = TextEditingController();
+  final TextEditingController _contentController = TextEditingController();
+
+  NoteAddScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Add Note'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Form(
           key: _formKey,
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               TextFormField(
-                controller: _nameController,
-                decoration: const InputDecoration(labelText: 'Name'),
+                controller: _titleController,
+                decoration: const InputDecoration(labelText: 'Title'),
                 validator: (value) {
                   if (value!.isEmpty) {
-                    return 'Name is required';
+                    return 'Title is required';
                   }
                   return null;
                 },
               ),
               const SizedBox(height: 16),
               TextFormField(
-                controller: _emailController,
-                decoration: const InputDecoration(labelText: 'Email'),
+                controller: _contentController,
+                decoration: const InputDecoration(labelText: 'Content'),
                 validator: (value) {
                   if (value!.isEmpty) {
-                    return 'Email is required';
-                  } else if (!value.contains('@')) {
-                    return 'Invalid email format';
+                    return 'Content is required';
                   }
                   return null;
                 },
               ),
               const SizedBox(height: 16),
               ElevatedButton(
-                onPressed: _submitForm,
-                child: const Text('Register'),
+                onPressed: () {
+                  if (_formKey.currentState!.validate()) {
+                    final newNote = Note(
+                      id: DateTime.now().toString(),
+                      title: _titleController.text,
+                      content: _contentController.text,
+                    );
+                    Provider.of<NoteProvider>(context, listen: false)
+                        .addNote(newNote);
+                    Navigator.pop(context);
+                  }
+                },
+                child: const Text('Add Note'),
               ),
             ],
           ),
@@ -94,28 +169,61 @@ class _RegistrationPageState extends State<RegistrationPage> {
   }
 }
 
-class SuccessPage extends StatelessWidget {
-  const SuccessPage({super.key});
+class NoteDetailScreen extends StatelessWidget {
+  final Note note;
+
+  const NoteDetailScreen({super.key, required this.note});
 
   @override
   Widget build(BuildContext context) {
+    final titleController = TextEditingController(text: note.title);
+    final contentController = TextEditingController(text: note.content);
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Registration Success'),
+        title: const Text('Edit Note'),
       ),
-      body: const Center(
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.check_circle,
-              color: Colors.green,
-              size: 100,
+            TextFormField(
+              controller: titleController,
+              decoration: const InputDecoration(labelText: 'Title'),
+              validator: (value) {
+                if (value!.isEmpty) {
+                  return 'Title is required';
+                }
+                return null;
+              },
             ),
-            SizedBox(height: 16),
-            Text(
-              'Registration successful!',
-              style: TextStyle(fontSize: 20),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: contentController,
+              decoration: const InputDecoration(labelText: 'Content'),
+              validator: (value) {
+                if (value!.isEmpty) {
+                  return 'Content is required';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () {
+                if (titleController.text.isNotEmpty &&
+                    contentController.text.isNotEmpty) {
+                  final updatedNote = Note(
+                    id: note.id,
+                    title: titleController.text,
+                    content: contentController.text,
+                  );
+                  Provider.of<NoteProvider>(context, listen: false)
+                      .updateNote(updatedNote);
+                  Navigator.pop(context);
+                }
+              },
+              child: const Text('Save Changes'),
             ),
           ],
         ),
