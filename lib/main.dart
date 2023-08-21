@@ -1,230 +1,183 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:http/http.dart' as http;
+import 'package:cached_network_image/cached_network_image.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(MyApp());
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (context) => NoteProvider(),
+      create: (context) => MovieProvider(),
       child: MaterialApp(
-        title: 'Note Taking App',
         debugShowCheckedModeBanner: false,
+        title: 'Movie Discovery App',
         theme: ThemeData(primarySwatch: Colors.blue),
-        home: const NoteListScreen(),
+        home: MovieListScreen(),
       ),
     );
   }
 }
 
-class Note {
-  final String id;
-  String title;
-  String content;
+class Movie {
+  final int id;
+  final String title;
+  final String overview;
+  final String posterUrl;
 
-  Note({required this.id, required this.title, required this.content});
+  Movie({
+    required this.id,
+    required this.title,
+    required this.overview,
+    required this.posterUrl,
+  });
 }
 
-class NoteProvider with ChangeNotifier {
-  final List<Note> _notes = [];
+class MovieProvider with ChangeNotifier {
+  List<Movie> _movies = [];
+  List<int> _favoriteMovieIds = [];
+  bool _hasFetchedMovies = false; // To track if movies have been fetched
 
-  List<Note> get notes => _notes;
+  List<Movie> get movies => _movies;
+  List<int> get favoriteMovieIds => _favoriteMovieIds;
 
-  void addNote(Note note) {
-    _notes.add(note);
-    notifyListeners();
-  }
+  bool get hasFetchedMovies => _hasFetchedMovies;
 
-  void updateNote(Note updatedNote) {
-    final index = _notes.indexWhere((note) => note.id == updatedNote.id);
-    if (index != -1) {
-      _notes[index] = updatedNote;
-      notifyListeners();
+  Future<void> fetchMovies() async {
+    if (!_hasFetchedMovies) {
+      try {
+        final response = await http.get(Uri.parse(
+          'https://api.themoviedb.org/3/movie/popular?api_key=86518f62c986249f28cf9f132d5b4ab2',
+        ));
+
+        if (response.statusCode == 200) {
+          final Map<String, dynamic> data = json.decode(response.body);
+          final List<Movie> parsedMovies =
+              List<Movie>.from(data['results'].map((movieData) {
+            return Movie(
+              id: movieData['id'],
+              title: movieData['title'],
+              overview: movieData['overview'],
+              posterUrl:
+                  'https://image.tmdb.org/t/p/w500/${movieData['poster_path']}',
+            );
+          }));
+
+          _movies = parsedMovies;
+          _hasFetchedMovies = true;
+          notifyListeners();
+          print('Data fetched and parsed! $_movies');
+        } else {
+          throw Exception('Failed to load movies');
+        }
+      } catch (error) {
+        // Handle errors
+        print('Error fetching movies: $error');
+      }
     }
   }
 
-  void deleteNote(String noteId) {
-    _notes.removeWhere((note) => note.id == noteId);
+  void toggleFavorite(int movieId) {
+    if (_favoriteMovieIds.contains(movieId)) {
+      _favoriteMovieIds.remove(movieId);
+    } else {
+      _favoriteMovieIds.add(movieId);
+    }
     notifyListeners();
   }
 }
 
-class NoteListScreen extends StatelessWidget {
-  const NoteListScreen({super.key});
-
+class MovieListScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final movieProvider = Provider.of<MovieProvider>(context);
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Note Taking App'),
+        title: Text('Movie Discovery App'),
       ),
-      body: Consumer<NoteProvider>(
-        builder: (context, noteProvider, child) {
-          final notes = noteProvider.notes;
-          return ListView.builder(
-            itemCount: notes.length,
-            itemBuilder: (context, index) {
-              final note = notes[index];
-              return ListTile(
-                title: Text(note.title),
-                subtitle: Text(note.content),
-                trailing: IconButton(
-                  icon: const Icon(Icons.delete),
-                  onPressed: () {
-                    noteProvider.deleteNote(note.id);
-                  },
-                ),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => NoteDetailScreen(note: note),
+      body: FutureBuilder<void>(
+        future: movieProvider.fetchMovies(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return Center(child: CircularProgressIndicator());
+          } else if (snapshot.hasError) {
+            return Center(child: Text('Error loading movies'));
+          } else {
+            final movies = movieProvider.movies;
+            return ListView.builder(
+              itemCount: movies.length,
+              itemBuilder: (context, index) {
+                final movie = movies[index];
+                return ListTile(
+                  leading: CachedNetworkImage(
+                    imageUrl: movie.posterUrl,
+                    placeholder: (context, url) => CircularProgressIndicator(),
+                    errorWidget: (context, url, error) => Icon(Icons.error),
+                  ),
+                  title: Text(movie.title),
+                  subtitle: Text(movie.overview),
+                  trailing: IconButton(
+                    icon: Icon(
+                      movieProvider.favoriteMovieIds.contains(movie.id)
+                          ? Icons.favorite
+                          : Icons.favorite_border,
                     ),
-                  );
-                },
-              );
-            },
-          );
-        },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => NoteAddScreen()),
-          );
-        },
-        child: const Icon(Icons.add),
-      ),
-    );
-  }
-}
-
-class NoteAddScreen extends StatelessWidget {
-  final _formKey = GlobalKey<FormState>();
-  final TextEditingController _titleController = TextEditingController();
-  final TextEditingController _contentController = TextEditingController();
-
-  NoteAddScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Add Note'),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            children: [
-              TextFormField(
-                controller: _titleController,
-                decoration: const InputDecoration(labelText: 'Title'),
-                validator: (value) {
-                  if (value!.isEmpty) {
-                    return 'Title is required';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _contentController,
-                decoration: const InputDecoration(labelText: 'Content'),
-                validator: (value) {
-                  if (value!.isEmpty) {
-                    return 'Content is required';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () {
-                  if (_formKey.currentState!.validate()) {
-                    final newNote = Note(
-                      id: DateTime.now().toString(),
-                      title: _titleController.text,
-                      content: _contentController.text,
+                    onPressed: () {
+                      movieProvider.toggleFavorite(movie.id);
+                    },
+                  ),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => MovieDetailScreen(movie: movie),
+                      ),
                     );
-                    Provider.of<NoteProvider>(context, listen: false)
-                        .addNote(newNote);
-                    Navigator.pop(context);
-                  }
-                },
-                child: const Text('Add Note'),
-              ),
-            ],
-          ),
-        ),
+                  },
+                );
+              },
+            );
+          }
+        },
       ),
     );
   }
 }
 
-class NoteDetailScreen extends StatelessWidget {
-  final Note note;
+class MovieDetailScreen extends StatelessWidget {
+  final Movie movie;
 
-  const NoteDetailScreen({super.key, required this.note});
+  MovieDetailScreen({required this.movie});
 
   @override
   Widget build(BuildContext context) {
-    final titleController = TextEditingController(text: note.title);
-    final contentController = TextEditingController(text: note.content);
-
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Edit Note'),
+        title: Text('Movie Details'),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
+      body: SingleChildScrollView(
+        padding: EdgeInsets.all(16.0),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            TextFormField(
-              controller: titleController,
-              decoration: const InputDecoration(labelText: 'Title'),
-              validator: (value) {
-                if (value!.isEmpty) {
-                  return 'Title is required';
-                }
-                return null;
-              },
+            CachedNetworkImage(
+              imageUrl: movie.posterUrl,
+              placeholder: (context, url) => CircularProgressIndicator(),
+              errorWidget: (context, url, error) => Icon(Icons.error),
             ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: contentController,
-              decoration: const InputDecoration(labelText: 'Content'),
-              validator: (value) {
-                if (value!.isEmpty) {
-                  return 'Content is required';
-                }
-                return null;
-              },
+            SizedBox(height: 16),
+            Text(
+              movie.title,
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () {
-                if (titleController.text.isNotEmpty &&
-                    contentController.text.isNotEmpty) {
-                  final updatedNote = Note(
-                    id: note.id,
-                    title: titleController.text,
-                    content: contentController.text,
-                  );
-                  Provider.of<NoteProvider>(context, listen: false)
-                      .updateNote(updatedNote);
-                  Navigator.pop(context);
-                }
-              },
-              child: const Text('Save Changes'),
-            ),
+            SizedBox(height: 8),
+            Text(movie.overview),
           ],
         ),
       ),
