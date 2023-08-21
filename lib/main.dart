@@ -6,10 +6,12 @@ import 'package:http/http.dart' as http;
 import 'package:cached_network_image/cached_network_image.dart';
 
 void main() {
-  runApp(MyApp());
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
@@ -18,7 +20,7 @@ class MyApp extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         title: 'Movie Discovery App',
         theme: ThemeData(primarySwatch: Colors.blue),
-        home: MovieListScreen(),
+        home: const MovieListScreen(),
       ),
     );
   }
@@ -40,7 +42,7 @@ class Movie {
 
 class MovieProvider with ChangeNotifier {
   List<Movie> _movies = [];
-  List<int> _favoriteMovieIds = [];
+  final List<int> _favoriteMovieIds = [];
   bool _hasFetchedMovies = false; // To track if movies have been fetched
 
   List<Movie> get movies => _movies;
@@ -93,21 +95,23 @@ class MovieProvider with ChangeNotifier {
 }
 
 class MovieListScreen extends StatelessWidget {
+  const MovieListScreen({super.key});
+
   @override
   Widget build(BuildContext context) {
     final movieProvider = Provider.of<MovieProvider>(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Movie Discovery App'),
+        title: const Text('Movie Discovery App'),
       ),
       body: FutureBuilder<void>(
         future: movieProvider.fetchMovies(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return Center(child: CircularProgressIndicator());
+            return const Center(child: CircularProgressIndicator());
           } else if (snapshot.hasError) {
-            return Center(child: Text('Error loading movies'));
+            return const Center(child: Text('Error loading movies'));
           } else {
             final movies = movieProvider.movies;
             return ListView.builder(
@@ -117,8 +121,8 @@ class MovieListScreen extends StatelessWidget {
                 return ListTile(
                   leading: CachedNetworkImage(
                     imageUrl: movie.posterUrl,
-                    placeholder: (context, url) => CircularProgressIndicator(),
-                    errorWidget: (context, url, error) => Icon(Icons.error),
+                    placeholder: (context, url) => const CircularProgressIndicator(),
+                    errorWidget: (context, url, error) => const Icon(Icons.error),
                   ),
                   title: Text(movie.title),
                   subtitle: Text(movie.overview),
@@ -153,30 +157,30 @@ class MovieListScreen extends StatelessWidget {
 class MovieDetailScreen extends StatelessWidget {
   final Movie movie;
 
-  MovieDetailScreen({required this.movie});
+  const MovieDetailScreen({super.key, required this.movie});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Movie Details'),
+        title: const Text('Movie Details'),
       ),
       body: SingleChildScrollView(
-        padding: EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             CachedNetworkImage(
               imageUrl: movie.posterUrl,
-              placeholder: (context, url) => CircularProgressIndicator(),
-              errorWidget: (context, url, error) => Icon(Icons.error),
+              placeholder: (context, url) => const CircularProgressIndicator(),
+              errorWidget: (context, url, error) => const Icon(Icons.error),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             Text(
               movie.title,
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text(movie.overview),
           ],
         ),
